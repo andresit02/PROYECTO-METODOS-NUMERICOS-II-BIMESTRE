@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generador de Fractales</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            color: #e0e0e0;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        h1 {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 2.5rem;
+            color: #ff6f61;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        form {
+            width: 50%;
+            margin: 20px auto;
+            padding: 30px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        label {
+            display: block;
+            font-size: 16px;
+            margin-bottom: 8px;
+            color: #e0e0e0;
+        }
+
+        input[type="number"] {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            font-size: 14px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #e0e0e0;
+            transition: border-color 0.3s, background 0.3s;
+        }
+
+        input[type="number"]:focus {
+            border-color: #ff6f61;
+            background: rgba(255, 255, 255, 0.2);
+            outline: none;
+        }
+
+        button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #ff6f61, #ff3b3f);
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.3s, transform 0.3s;
+        }
+
+        button:hover {
+            background: linear-gradient(135deg, #ff3b3f, #ff6f61);
+            transform: translateY(-2px);
+        }
+
+        .container {
+            text-align: center;
+            width: 80%;
+            margin: 20px auto;
+        }
+
+        #image-container {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+            overflow: hidden;
+            width: 100%;
+            height: 70vh;
+            border-radius: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        #fractal {
+            max-width: 100%;
+            max-height: 100%;
+            cursor: grab;
+            border-radius: 15px;
+        }
+
+        /* Estilos adicionales para el scrollbar */
+        ::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #ff6f61, #ff3b3f);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(135deg, #ff3b3f, #ff6f61);
+        }
+    </style>
+</head>
+<body>
+    <h1>Generador de Fractales</h1>
+    <form action="/generar" method="post">
+        <label for="x_min">x_min:</label>
+        <input type="number" id="x_min" name="x_min" step="0.01" value="">
+
+        <label for="x_max">x_max:</label>
+        <input type="number" id="x_max" name="x_max" step="0.01" value="">
+
+        <label for="y_min">y_min:</label>
+        <input type="number" id="y_min" name="y_min" step="0.01" value="">
+
+        <label for="y_max">y_max:</label>
+        <input type="number" id="y_max" name="y_max" step="0.01" value="">
+
+        <label for="ancho">Ancho (px):</label>
+        <input type="number" id="ancho" name="ancho" value="">
+
+        <label for="alto">Alto (px):</label>
+        <input type="number" id="alto" name="alto" value="">
+
+        <label for="iteraciones_max">Iteraciones máximas:</label>
+        <input type="number" id="iteraciones_max" name="iteraciones_max" value="">
+
+        <button type="submit">Visualizar</button>
+    </form>
+
+    <div class="container">
+        <div id="image-container">
+            <img id="fractal" src="/static/fractal.png" alt="Fractal generado">
+        </div>
+    </div>
+
+    <script>
+        const fractalImage = document.getElementById("fractal");
+        const imageContainer = document.getElementById("image-container");
+
+        let scale = 1;
+        let translateX = 0;
+        let translateY = 0;
+        let isDragging = false;
+        let cursorState = "grab";
+
+        fractalImage.addEventListener("wheel", (event) => {
+            event.preventDefault();
+
+            const zoomSpeed = 0.05;
+            const rect = fractalImage.getBoundingClientRect();
+
+            const mouseX = event.clientX - rect.left;
+            const mouseY = event.clientY - rect.top;
+            const zoomIn = event.deltaY < 0;
+
+            const prevScale = scale;
+            scale = zoomIn ? scale * (1 + zoomSpeed) : scale / (1 + zoomSpeed);
+            scale = Math.max(1, scale);
+
+            translateX -= (mouseX - translateX) * (scale / prevScale - 1);
+            translateY -= (mouseY - translateY) * (scale / prevScale - 1);
+
+            const maxTranslateX = (scale - 1) * fractalImage.width / 2;
+            const maxTranslateY = (scale - 1) * fractalImage.height / 2;
+
+            translateX = Math.min(Math.max(translateX, -maxTranslateX), maxTranslateX);
+            translateY = Math.min(Math.max(translateY, -maxTranslateY), maxTranslateY);
+
+            fractalImage.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+        });
+
+        let lastX = 0;
+        let lastY = 0;
+
+        fractalImage.addEventListener("mousedown", (event) => {
+            if (cursorState === "grab") {
+                cursorState = "grabbing";
+                isDragging = true;
+                lastX = event.clientX;
+                lastY = event.clientY;
+                fractalImage.style.cursor = "grabbing";
+            } else {
+                cursorState = "grab";
+                isDragging = false;
+                fractalImage.style.cursor = "grab";
+            }
+        });
+
+        window.addEventListener("mousemove", (event) => {
+            if (isDragging) {
+                const dx = event.clientX - lastX;
+                const dy = event.clientY - lastY;
+
+                translateX += dx;
+                translateY += dy;
+
+                const maxTranslateX = (scale - 1) * fractalImage.width / 2;
+                const maxTranslateY = (scale - 1) * fractalImage.height / 2;
+
+                translateX = Math.min(Math.max(translateX, -maxTranslateX), maxTranslateX);
+                translateY = Math.min(Math.max(translateY, -maxTranslateY), maxTranslateY);
+
+                fractalImage.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+
+                lastX = event.clientX;
+                lastY = event.clientY;
+            }
+        });
+
+        window.addEventListener("mouseup", () => {
+            if (cursorState === "grabbing") {
+                isDragging = false;
+                fractalImage.style.cursor = "grab";
+            }
+        });
+
+        fractalImage.addEventListener("mouseleave", () => {
+            if (isDragging && cursorState === "grabbing") {
+                isDragging = false;
+                fractalImage.style.cursor = "grab";
+            }
+        });
+    </script>
+</body>
+</html>
